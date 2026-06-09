@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Script DDNS Failover Recursivo - Documentación Completa</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.6;color:#e0e0e0;background:#1a1a1a;padding:20px}
+.container{max-width:960px;margin:0 auto;background:#252525;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5);overflow:hidden}
+header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:40px 30px;text-align:center}
+header h1{font-size:2.2em;margin-bottom:10px}
+header p{font-size:1.1em;opacity:.95}
+.contact{margin-top:15px;font-size:.95em}
+.contact a{color:#fff;text-decoration:none;border-bottom:2px solid rgba(255,255,255,.3)}
+.contact a:hover{border-bottom-color:#fff}
+main{padding:40px}
+.toc{background:#2a2a2a;border-left:4px solid #667eea;padding:20px;margin-bottom:40px;border-radius:4px}
+.toc h2{margin-bottom:15px;color:#8b9eff}
+.toc ol{margin-left:20px}
+.toc li{margin-bottom:8px}
+.toc a{color:#8b9eff;text-decoration:none}
+.toc a:hover{text-decoration:underline}
+section{margin-bottom:50px}
+h2{font-size:1.8em;color:#8b9eff;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #3a3a3a}
+h3{font-size:1.3em;color:#a8b8ff;margin-top:25px;margin-bottom:15px}
+h4{font-size:1.1em;color:#c0c8ff;margin-top:20px;margin-bottom:10px}
+p{margin-bottom:15px;color:#d0d0d0}
+code{background:#1e1e1e;padding:2px 6px;border-radius:3px;font-family:'Courier New',monospace;color:#ff7f50;border:1px solid #3a3a3a}
+pre{background:#1e1e1e;color:#d4d4d4;padding:20px;border-radius:6px;overflow-x:auto;margin-bottom:20px;line-height:1.5;font-family:'Courier New',monospace;font-size:.88em;border:1px solid #3a3a3a}
+pre code{background:0 0;color:inherit;padding:0;border:none}
+table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:.92em}
+table th{background:#667eea;color:#fff;padding:12px;text-align:left;font-weight:600}
+table td{padding:12px;border-bottom:1px solid #3a3a3a;color:#d0d0d0;vertical-align:top}
+table tr:hover{background:#2f2f2f}
+.success{color:#4caf50;font-weight:700}
+.error{color:#ff5252;font-weight:700}
+.warning{color:#ffc107;font-weight:700}
+.info{color:#29b6f6;font-weight:700}
+ul,ol{margin-left:20px;margin-bottom:15px}
+li{margin-bottom:8px;color:#d0d0d0}
+.note{background:#1f3a5c;border-left:4px solid #29b6f6;padding:15px;margin-bottom:20px;border-radius:4px}
+.note strong{color:#64b5f6}
+.note ol,.note li{color:#d0d0d0}
+.warn-box{background:#3a2f1a;border-left:4px solid #ffc107;padding:15px;margin-bottom:20px;border-radius:4px}
+.warn-box strong{color:#ffca28}
+.topology{background:#1e1e1e;padding:15px;border-radius:4px;margin-bottom:15px;font-family:'Courier New',monospace;font-size:.85em;overflow-x:auto;color:#d4d4d4;border:1px solid #3a3a3a;white-space:pre}
+footer{background:#2a2a2a;padding:20px;text-align:center;color:#888;border-top:1px solid #3a3a3a}
+footer a{color:#8b9eff;text-decoration:none}
+footer a:hover{text-decoration:underline}
+.highlight{background:#3a3a2a;padding:2px 4px;border-radius:3px;color:#ffc107}
+.version-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.85em;font-weight:700;margin-right:8px}
+.v1{background:#2d4a2d;color:#7fdf7f}
+.v2{background:#2d3a5c;color:#7fa8df}
+.v3{background:#4a2d4a;color:#df7fdf}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🌐 Script DDNS - Failover Recursivo</h1>
+<p>Documentación completa · 3 versiones · MikroTik RouterOS</p>
+<div class="contact">
+<strong>Desarrollado por DMZ Sistemas — Brian Tierno</strong><br>
+<a href="https://dmz.ar" target="_blank">https://dmz.ar</a> | 
+<a href="https://wa.me/541178285893" target="_blank">https://wa.me/541178285893</a>
+</div>
+</header>
+<main>
+
+<div class="toc">
+<h2>📋 Tabla de Contenidos</h2>
+<ol>
+<li><a href="#intro">Introducción</a></li>
+<li><a href="#versiones">Comparativa de Versiones (V1/V2/V3)</a></li>
+<li><a href="#cual">¿Cuál versión usar?</a></li>
+<li><a href="#routing">Setup de Routing Recursivo (común)</a></li>
+<li><a href="#config">Configuración del Script</a></li>
+<li><a href="#deteccion">Lógica de Detección por Versión</a></li>
+<li><a href="#cdmon">DDNS con cdmon</a></li>
+<li><a href="#cgnat">CGNAT y WAN sin IP pública</a></li>
+<li><a href="#instalacion">Instalación</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+<li><a href="#aprendizajes">Aprendizajes Técnicos</a></li>
+</ol>
+</div>
+
+<section id="intro">
+<h2>📌 Introducción</h2>
+<p>Sistema de monitoreo dual-WAN para MikroTik RouterOS que detecta cortes de fibra/ISP en tiempo real, actualiza registros DDNS en cdmon.org y envía alertas vía Telegram/WhatsApp. Existen 3 versiones según la topología de la WAN2 (la WAN1 siempre es IP estática).</p>
+<h3>✨ Características comunes a las 3 versiones</h3>
+<ul>
+<li>✅ Detección en 2 etapas: enlace local + internet real</li>
+<li>✅ Failover automático con routing recursivo (WAN1)</li>
+<li>✅ Alertas en tiempo real: Telegram + WhatsApp</li>
+<li>✅ DDNS solo se actualiza si la IP cambió (consulta previa a cdmon)</li>
+<li>✅ Log limpio en producción (<code>debugEnabled false</code>)</li>
+<li>✅ Soporta hardware MIPS mono-core (RB2011UiAS-2HnD)</li>
+</ul>
+</section>
+
+<section id="versiones">
+<h2>🔢 Comparativa de Versiones</h2>
+<table>
+<tr><th>Aspecto</th><th><span class="version-badge v1">V1</span>PPPoE</th><th><span class="version-badge v2">V2</span>Dual Estática</th><th><span class="version-badge v3">V3</span>DHCP/Starlink</th></tr>
+<tr><td><strong>WAN1</strong></td><td>Estática (ether1)</td><td>Estática (ether1)</td><td>Estática (ether1::Movistar)</td></tr>
+<tr><td><strong>WAN2</strong></td><td>PPPoE (ppp-out1)</td><td>Estática (ether2)</td><td>DHCP dinámico (ether2::Starlink)</td></tr>
+<tr><td><strong>IP WAN2</strong></td><td>Dinámica del ISP</td><td>Fija (192.168.20.254)</td><td>Dinámica (DHCP)</td></tr>
+<tr><td><strong>Enlace WAN2</strong></td><td>¿ppp-out1 running?</td><td>Ping a gateway</td><td>¿Existe address en interface?</td></tr>
+<tr><td><strong>Internet WAN2</strong></td><td>Ping via ppp-out1</td><td>Ping via src-address</td><td>Ping via src-address (IP dinámica)</td></tr>
+<tr><td><strong>IP pública WAN2</strong></td><td>Directa del interface</td><td>fetch ipinfo.io + tabla to-wan2</td><td>fetch ipinfo.io + src-address</td></tr>
+<tr><td><strong>Tabla routing extra</strong></td><td>No necesita</td><td>to-wan2 + rule</td><td>salida_WAN2 + rule</td></tr>
+<tr><td><strong>DDNS WAN2</strong></td><td>Sí</td><td>Sí</td><td>Opcional (flag, off por CGNAT)</td></tr>
+</table>
+</section>
+
+<section id="cual">
+<h2>🎯 ¿Cuál versión usar?</h2>
+<table>
+<tr><th>Si tu WAN2 es...</th><th>Usá</th></tr>
+<tr><td>Conexión PPPoE (ADSL con usuario/contraseña)</td><td><span class="version-badge v1">V1</span></td></tr>
+<tr><td>Modem en bridge con IP local fija que vos asignás</td><td><span class="version-badge v2">V2</span></td></tr>
+<tr><td>Starlink, modem con DHCP, o IP dinámica del proveedor</td><td><span class="version-badge v3">V3</span></td></tr>
+</table>
+<div class="note">
+<strong>💡 Nota:</strong> V3 incluye un flag <code>wan2DdnsEnabled</code>. Si tu proveedor (ej: Starlink) usa CGNAT, dejalo en <code>false</code> (solo monitoreo). Si tenés IP pública directa, ponelo en <code>true</code> para actualizar DDNS de WAN2 también.
+</div>
+</section>
+
+<section id="routing">
+<h2>⚙️ Setup de Routing Recursivo (común a las 3)</h2>
+<h3>¿Por qué es necesario?</h3>
+<p>En failover por distancia, si WAN1 pierde fibra/ISP pero el modem sigue vivo, el <code>check-gateway=ping</code> al modem responde OK y la ruta NO failovea. El router sigue usando una WAN caída.</p>
+<p><strong>Solución:</strong> Una <span class="highlight">ruta sonda recursiva</span> que pinguea un host remoto a través de la fibra. Si la fibra cae, 1.1.1.1 no responde → la ruta se inactiva → failover real.</p>
+
+<h3>Comandos (ajustar IPs por equipo)</h3>
+<pre><code># Sonda: 1.1.1.1 sale por el modem WAN1
+/ip route add dst-address=1.1.1.1/32 gateway=192.168.10.1 scope=10 comment="WAN1 probe recursivo"
+
+# Default recursiva (CRÍTICO: target-scope=11 en ROS 7.20.7)
+/ip route add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 distance=1 check-gateway=ping comment="WAN1 default recursivo"</code></pre>
+
+<div class="warn-box">
+<strong>⚠️ target-scope=11</strong> es CRÍTICO en RouterOS 7.20.7. Otras versiones pueden requerir 10 o 0. Verificá con <code>/ip route print where gateway="1.1.1.1"</code> que muestre estado <strong>A</strong> (Active).
+</div>
+
+<h3>Routing extra para WAN2 (solo V2 y V3)</h3>
+<p>Para que el fetch/ping de WAN2 salga por su interface aunque esté en standby:</p>
+<pre><code># V2 (IP fija WAN2)
+/routing table add name=to-wan2 fib
+/ip route add dst-address=0.0.0.0/0 gateway=192.168.20.1 routing-table=to-wan2
+/routing rule add src-address=192.168.20.254 action=lookup table=to-wan2
+
+# V3 (Starlink DHCP) - tabla salida_WAN2
+/routing table add name=salida_WAN2 fib
+/ip route add dst-address=0.0.0.0/0 gateway=GATEWAY_STARLINK routing-table=salida_WAN2 check-gateway=ping
+# Nota: la IP de Starlink es dinámica; la rule debe ajustarse al rango asignado</code></pre>
+</section>
+
+<section id="config">
+<h2>🔧 Configuración del Script</h2>
+<p>Todas las versiones tienen una <strong>ZONA DE CONFIGURACIÓN</strong> al inicio. Variables principales:</p>
+<pre><code># Debug: true = ves todo | false = solo alertas reales (PRODUCCIÓN)
+:local debugEnabled false
+
+# Telegram
+:local telegramEnabled true
+:local telegramToken "TU_BOT_TOKEN"
+:local telegramChatId "TU_CHAT_ID"
+
+# WhatsApp (textmebot)
+:local whatsappEnabled false
+:local whatsappPhone "+549..."
+:local whatsappApiKey "TU_API_KEY"
+
+# DDNS WAN1 (cdmon)
+:local ddns1Domain "tudominio.com"
+:local ddns1User "TU_USUARIO_DDNS"
+:local ddns1Hash "MD5_DE_TU_PASSWORD"
+
+# Interfaces (V3 usa nombres con comentario ::)
+:local wan1Interface "ether1::Movistar"
+:local wan2Interface "ether2::Starlink"</code></pre>
+
+<h3>Control de Debug / Log Limpio</h3>
+<div class="note">
+<strong>💡 Log limpio opcional:</strong> El script NO toca el sistema de logging automáticamente (eso ensuciaría el log). Si querés log limpio sin mensajes de fetch, ejecutá manualmente ANTES:
+<pre><code>/system logging set [find topics~"info"] topics=info,!fetch</code></pre>
+Y para restaurar:
+<pre><code>/system logging set [find topics~"info"] topics=info</code></pre>
+</div>
+</section>
+
+<section id="deteccion">
+<h2>🔍 Lógica de Detección por Versión</h2>
+
+<h3><span class="version-badge v1">V1</span> WAN2 PPPoE</h3>
+<pre><code>ENLACE:   /interface get [find name=ppp-out1] running
+INTERNET: /ping 8.8.8.8 interface=ppp-out1
+IP:       lee directo de /ip address (sin fetch)</code></pre>
+
+<h3><span class="version-badge v2">V2</span> WAN2 Estática</h3>
+<pre><code>ENLACE:   /ping interface=ether2 gateway
+INTERNET: /ping 8.8.8.8 src-address=192.168.20.254
+IP:       fetch ipinfo.io src-address=192.168.20.254 (rule → to-wan2)</code></pre>
+
+<h3><span class="version-badge v3">V3</span> WAN2 DHCP/Starlink</h3>
+<pre><code>ENLACE:   ¿existe address en ether2::Starlink?
+INTERNET: /ping 8.8.8.8 src-address=IP_DINAMICA
+IP:       fetch ipinfo.io src-address=IP_DINAMICA
+          (IP dinámica extraída de address table al inicio)</code></pre>
+
+<div class="warn-box">
+<strong>⚠️ Capacidades de comandos (importante):</strong>
+<table style="margin-top:10px">
+<tr><th>Comando</th><th>interface=</th><th>src-address=</th><th>routing-table=</th></tr>
+<tr><td><code>/ping</code></td><td class="success">✅</td><td class="success">✅</td><td class="success">✅</td></tr>
+<tr><td><code>/tool fetch</code></td><td class="error">❌</td><td class="success">✅</td><td class="error">❌</td></tr>
+</table>
+Por eso el fetch siempre usa <code>src-address</code>, nunca interface ni routing-table.
+</div>
+</section>
+
+<section id="cdmon">
+<h2>🔐 DDNS con cdmon</h2>
+<h3>Lógica de actualización inteligente</h3>
+<p>El script consulta primero qué IP está registrada en cdmon, la compara con la IP pública actual, y <strong>solo actualiza si difieren</strong>. Esto evita llamadas innecesarias a la API.</p>
+<pre><code># 1. Consultar IP registrada actualmente en cdmon
+/tool fetch url=("https://dinamico.cdmon.org/onlineService.php?enctype=MD5&n=" . $user . "&p=" . $hash) output=user as-value
+# Respuesta contiene "newip=XXX&..." → se parsea
+
+# 2. Obtener IP pública real
+/tool fetch url="http://ipinfo.io/ip" src-address=$ipLocal output=user as-value
+
+# 3. Si difieren, actualizar con &cip=
+/tool fetch url=("...?enctype=MD5&n=" . $user . "&p=" . $hash . "&cip=" . $nuevaIP) keep-result=no</code></pre>
+
+<h3>Obtener el hash MD5</h3>
+<pre><code># Linux/Mac
+echo -n "tu_password_cdmon" | md5sum</code></pre>
+</section>
+
+<section id="cgnat">
+<h2>🛰️ CGNAT y WAN sin IP pública</h2>
+<p><strong>CGNAT</strong> (Carrier Grade NAT) es cuando el proveedor te asigna una IP de un rango privado del carrier (ej: Starlink en <code>100.64.0.0/10</code>) en lugar de una IP pública real. La IP que ve el mundo exterior NO es configurable por vos.</p>
+<div class="warn-box">
+<strong>⚠️ Implicancia para DDNS:</strong> Si tu WAN2 está en CGNAT, el DDNS es inútil porque no podés apuntar un dominio a esa IP (no es accesible desde afuera, no admite portforwarding ni DMZ). Por eso en V3 el flag <code>wan2DdnsEnabled = false</code> deja WAN2 solo en modo monitoreo.
+</div>
+<h3>¿Cuándo habilitar DDNS en WAN2?</h3>
+<ul>
+<li>Starlink plan Business (IP pública dedicada)</li>
+<li>Otro proveedor que asigna IP pública directa</li>
+<li>Modem con portforwarding/DMZ hacia el MikroTik</li>
+</ul>
+<p>En esos casos: <code>:local wan2DdnsEnabled true</code> y configurar <code>ddns2*</code>.</p>
+</section>
+
+<section id="instalacion">
+<h2>📥 Instalación</h2>
+<h3>Como script programado</h3>
+<ol>
+<li>Winbox → <strong>System → Scripts</strong> → New</li>
+<li>Name: <code>ddns-check</code>, Source: pegar contenido del .txt</li>
+<li><strong>System → Scheduler</strong> → New:
+<ul>
+<li>Name: <code>ddns-periodic</code></li>
+<li>On Event: <code>ddns-check</code></li>
+<li>Interval: <code>5m</code></li>
+<li>Start Time: <code>startup</code></li>
+</ul>
+</li>
+</ol>
+<h3>Test manual</h3>
+<pre><code>/system script run ddns-check
+/log print where topics~script</code></pre>
+</section>
+
+<section id="troubleshooting">
+<h2>🔧 Troubleshooting</h2>
+
+<h4>❓ Failover no ocurre al caer WAN1</h4>
+<pre><code>/ip route print where gateway="1.1.1.1"
+# Si está Inactive:
+/ip route set [find gateway="1.1.1.1"] target-scope=11</code></pre>
+
+<h4>❓ WAN2 figura sin internet pero sí hay conexión (V3)</h4>
+<p>El ping debe salir por la IP de WAN2. Verificá en terminal:</p>
+<pre><code>/ping 8.8.8.8 src-address=IP_DE_TU_WAN2 count=3</code></pre>
+<p>La IP se obtiene de la address table del interface WAN2.</p>
+
+<h4>❓ Error "expected end of command"</h4>
+<ul>
+<li><code>/tool fetch</code> con <code>interface=</code> o <code>routing-table=</code> → usar <code>src-address=</code></li>
+<li>Parseo con <code>:find ... >= 0</code> → en RouterOS <code>:find</code> devuelve <code>""</code>, no <code>-1</code></li>
+</ul>
+
+<h4>❓ DDNS falla con IP local en vez de pública</h4>
+<p>No leer la IP del interface directamente para WAN con NAT (devuelve IP privada). Usar fetch a ipinfo.io con src-address correcto.</p>
+
+<h4>❓ Logs llenos de "Download from ipinfo.io FINISHED"</h4>
+<pre><code>/system logging set [find topics~"info"] topics=info,!fetch</code></pre>
+</section>
+
+<section id="aprendizajes">
+<h2>🎓 Aprendizajes Técnicos</h2>
+<table>
+<tr><th>Tema</th><th>Detalle</th></tr>
+<tr><td><strong>check-gateway insuficiente</strong></td><td>Apuntar a un modem que sigue vivo cuando la fibra cae no detecta el corte real. Requiere routing recursivo con sonda remota.</td></tr>
+<tr><td><strong>target-scope en ROS 7.20.7</strong></td><td>La default recursiva necesita <code>target-scope=11</code> para activarse. Valores menores la dejan Inactive.</td></tr>
+<tr><td><strong>/tool fetch limitado</strong></td><td>No acepta <code>interface=</code> ni <code>routing-table=</code>. Solo <code>src-address=</code> para forzar egreso.</td></tr>
+<tr><td><strong>/ping flexible</strong></td><td>Acepta interface, src-address y routing-table. Más opciones que fetch.</td></tr>
+<tr><td><strong>:find devuelve ""</strong></td><td>En RouterOS, <code>:find</code> que no encuentra devuelve string vacío, no -1. Comparar con <code>>= 0</code> rompe.</td></tr>
+<tr><td><strong>output=user as-value</strong></td><td>Se combinan: la respuesta llega limpia en <code>->"data"</code> sin necesidad de parseo manual.</td></tr>
+<tr><td><strong>IP dinámica como src-address</strong></td><td>Para WAN DHCP, extraer la IP de la address table al inicio y usarla como src-address en ping y fetch.</td></tr>
+<tr><td><strong>CGNAT = sin DDNS</strong></td><td>Starlink residencial usa CGNAT (rango 100.64.0.0/10). DDNS no aplica; solo monitoreo.</td></tr>
+</table>
+</section>
+
+</main>
+<footer>
+<p>📧 ¿Preguntas? Contactar a Brian Tierno via <a href="https://wa.me/541178285893" target="_blank">WhatsApp</a></p>
+<p style="margin-top:10px;font-size:.9em">© 2026 DMZ Sistemas. Todos los derechos reservados.</p>
+</footer>
+</div>
+</body>
+</html>
