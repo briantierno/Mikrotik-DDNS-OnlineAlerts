@@ -45,8 +45,13 @@
 # --- Activar/Desactivar debug en consola ---
 :local debugEnabled false
 
+# --- Habilitar/deshabilitar actualizacion de DDNS por WAN ---
+# Si est� en false, se omite completamente (sin validar ni actualizar)
+:local ddns1Enabled true
+:local ddns2Enabled true
+
 # --- Avisar cuando cambia la IP publica (alertas DDNS) ---
-# IMPORTANTE: el DDNS SIEMPRE se actualiza aunque esto este en false.
+# IMPORTANTE: el DDNS se actualiza SOLO si el WAN esta UP y ddnsXEnabled=true.
 # Esto SOLO controla si se envia notificacion del cambio de IP.
 # Las alertas de CAIDA de WAN NO dependen de este parametro (siempre avisan).
 :local notifyIpChange false
@@ -201,7 +206,7 @@
 ###############################################################################
 
 # --- WAN1 ---
-:if ($wan1Status = "UP") do={
+:if (($wan1Status = "UP") and ($ddns1Enabled = true)) do={
   :if ($debugEnabled = true) do={ :log info ("🔄 [PASO 3/3] Procesando DDNS de WAN1 (" . $ddns1Domain . ")...") }
   :do {
     :set CurrentIP ([/tool fetch url=$ipinfoUrl src-address=$ddns1SourceIP output=user as-value]->"data")
@@ -210,7 +215,14 @@
 
   :if ([:len $CurrentIP] > 0) do={
     :local OldIp1 ""
-    :do { :set OldIp1 ([:resolve $ddns1Domain]) } on-error={ :set OldIp1 "" }
+    :do {
+      # Obtener IP registrada en cdmon (via API, no :resolve que puede devolver DNS local)
+      :local ddnsResponse ([/tool fetch url=("https://dinamico.cdmon.org/onlineService.php?enctype=MD5&n=" . $ddns1User . "&p=" . $ddns1Hash) output=user as-value]->"data")
+      :local s ([:find $ddnsResponse "newip="] + 6)
+      :if ($s >= 6) do={ :set OldIp1 [:pick $ddnsResponse $s [:find $ddnsResponse "&" $s]] }
+    } on-error={ :set OldIp1 "" }
+    :if ($debugEnabled = true) do={ :log info ("DEBUG: IP registrada en cdmon WAN1: " . $OldIp1) }
+    
     :if ($CurrentIP = $OldIp1) do={
       :if ($debugEnabled = true) do={ :log info ("✅ WAN1 sin cambios - IP actual: " . $CurrentIP) }
     } else={
@@ -228,11 +240,12 @@
     }
   }
 } else={
-  :log warning ("⚠️ WAN1 no esta UP (" . $wan1Status . "), se omite DDNS WAN1")
+  :if ($ddns1Enabled = false) do={ :if ($debugEnabled = true) do={ :log info ("⏭️  WAN1 DDNS deshabilitado") } }
+  :if ($wan1Status != "UP") do={ :log warning ("⚠️ WAN1 no esta UP (" . $wan1Status . "), se omite DDNS WAN1") }
 }
 
 # --- WAN2 ---
-:if ($wan2Status = "UP") do={
+:if (($wan2Status = "UP") and ($ddns2Enabled = true)) do={
   :if ($debugEnabled = true) do={ :log info ("🔄 [PASO 3/3] Procesando DDNS de WAN2 (" . $ddns2Domain . ")...") }
   :do {
     :set PublicIP ([/tool fetch url=$ipinfoUrl src-address=$ddns2SourceIP output=user as-value]->"data")
@@ -240,13 +253,19 @@
   } on-error={ :log error "❌ ERROR obteniendo IP de WAN2"; :set PublicIP "" }
 
   # GUARD extra: si WAN2 devolvio la misma IP que WAN1, la consulta se fugo.
-  # Con el reordenamiento no deberia pasar, queda como red de seguridad.
   :if (([:len $PublicIP] > 0) and ($PublicIP = $CurrentIP)) do={
     :log warning ("⚠️ WAN2 OMITIDA: IP (" . $PublicIP . ") igual a WAN1. Posible fuga, no se actualiza " . $ddns2Domain)
   } else={
     :if ([:len $PublicIP] > 0) do={
       :local OldIp2 ""
-      :do { :set OldIp2 ([:resolve $ddns2Domain]) } on-error={ :set OldIp2 "" }
+      :do {
+        # Obtener IP registrada en cdmon (via API, no :resolve)
+        :local ddnsResponse ([/tool fetch url=("https://dinamico.cdmon.org/onlineService.php?enctype=MD5&n=" . $ddns2User . "&p=" . $ddns2Hash) output=user as-value]->"data")
+        :local s ([:find $ddnsResponse "newip="] + 6)
+        :if ($s >= 6) do={ :set OldIp2 [:pick $ddnsResponse $s [:find $ddnsResponse "&" $s]] }
+      } on-error={ :set OldIp2 "" }
+      :if ($debugEnabled = true) do={ :log info ("DEBUG: IP registrada en cdmon WAN2: " . $OldIp2) }
+      
       :if ($PublicIP = $OldIp2) do={
         :if ($debugEnabled = true) do={ :log info ("✅ WAN2 sin cambios - IP actual: " . $PublicIP) }
       } else={
@@ -265,7 +284,8 @@
     }
   }
 } else={
-  :log warning ("⚠️ WAN2 no esta UP (" . $wan2Status . "), se omite DDNS WAN2")
+  :if ($ddns2Enabled = false) do={ :if ($debugEnabled = true) do={ :log info ("⏭️  WAN2 DDNS deshabilitado") } }
+  :if ($wan2Status != "UP") do={ :log warning ("⚠️ WAN2 no esta UP (" . $wan2Status . "), se omite DDNS WAN2") }
 }
 
 ###############################################################################
