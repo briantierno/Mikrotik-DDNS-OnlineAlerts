@@ -1,0 +1,3 @@
+# Config real por sitio (tokens, claves, telefonos). Nunca subir.
+dmz-config.rsc
+*.local.rsc
